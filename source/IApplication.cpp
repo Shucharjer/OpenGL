@@ -1,4 +1,5 @@
 #include "Input/Input.h"
+#include "Render/Map/MappingManager.h"
 #include "imgui.h"
 #include "Reference/imgui_impl_glfw.h"
 #include "Reference/imgui_impl_opengl3.h"
@@ -24,6 +25,7 @@ Player* IApplication::g_player = nullptr;
 
 Timer IApplication::g_timer;
 DisplayConfig IApplication::g_display_config;
+MappingManager IApplication::g_mapping_manager;
 
 bool IApplication::g_ignore_cursor_once = true;
 bool IApplication::g_ignore_input = false;
@@ -129,6 +131,8 @@ void IApplication::Init()
     m_config->TryGetInt("height", g_display_config.height, 960);
     m_config->TryGetInt("port_width", g_display_config.port_width, 1280);
     m_config->TryGetInt("port_height", g_display_config.port_height, 960);
+    m_config->TryGetFloat("near", g_display_config.near, 0.1f);
+    m_config->TryGetFloat("far", g_display_config.far, 1200.0f);
     
     m_window = glfwCreateWindow(g_display_config.width, g_display_config.height, g_display_config.name, nullptr, nullptr);
     if (!m_window)

@@ -1,4 +1,5 @@
 #pragma once
+#include "Render/Map/MappingManager.h"
 #include "Timer.h"
 
 #include "glad/glad.h"
@@ -21,6 +22,9 @@ struct DisplayConfig
     int port_width;
     int port_height;
 
+    float near;
+    float far;
+
     const char* name = "Unique Engine";
 };
 
@@ -38,6 +42,7 @@ class IApplication
 
     static Timer g_timer;
     static DisplayConfig g_display_config;
+    static MappingManager g_mapping_manager;
 
     IApplication(Config* config);
     ~IApplication();

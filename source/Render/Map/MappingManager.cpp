@@ -5,7 +5,7 @@
 #include "vector"
 #include <cstddef>
 
-float CubeVertices[] = {
+float MappingManager::CubeVertices[] = {
 // positions          
 -1.0f,  1.0f, -1.0f,
 -1.0f, -1.0f, -1.0f,
@@ -57,7 +57,6 @@ std::vector<std::string> Faces_PNG{"right.png", "left.png", "top.png", "bottom.p
 MappingManager* MappingManager::m_instance = nullptr;
 
 std::list<std::string> MappingManager::m_texture_paths;
-std::list<Texture*> MappingManager::m_texture_list;
 
 bool MappingManager::m_cube_data_created = false;
 GLuint MappingManager::m_cube_vao;
@@ -82,17 +81,10 @@ MappingManager::~MappingManager()
         glDeleteBuffers(1, &m_cube_vao);
     }
 
-    for (Texture* i : m_texture_list)
-    {
-        glDeleteTextures(1, &i->id);
-        m_texture_paths.remove(i->path.C_Str());
-        delete i;
-        i = nullptr;
-    }
-    m_texture_list.clear();
-
+    if (m_cube_list.empty()) return;
     for (CubeMap* i : m_cube_list)
     {
+        if (!i) continue;
         glDeleteTextures(1, &i->m_texture);
         m_cubemap_paths.remove(i->m_folder_path);
         delete i;
@@ -153,15 +145,14 @@ bool MappingManager::ReadTexture2DDirectly(const char *path, GLenum target, bool
     return true;
 }
 
-bool MappingManager::CreateTexture2D(const char* path, GLenum target, bool gamma)
+bool MappingManager::ReadTexture2D(const char* path, GLenum target, bool gamma)
 {
     bool read = true;
     for (std::string& i : m_texture_paths)
     {
         if (!strcmp(path, i.data()))
         {
-            read = false;
-            break;
+            return false;
         }
     }
 
@@ -218,13 +209,8 @@ bool MappingManager::CreateTexture2D(const char* path, GLenum target, bool gamma
 
         return true;
     }
-    else
-    {
-        return false;
-    }
+    return false;
 }
-
-
 
 CubeMap* MappingManager::CreateCubeMap(const char *folder_path, bool is_jpg, bool gamma)
 {
@@ -282,6 +268,8 @@ CubeMap* MappingManager::CreateCubeMap(const char *folder_path, bool is_jpg, boo
         }
     }
 
+    m_cube_list.push_back(ptr);
+
     return ptr;
 }
 
@@ -290,7 +278,6 @@ void MappingManager::DeleteTexture2D(Texture* ptr)
     if (!ptr) return;
 
     m_texture_paths.remove(ptr->path.C_Str());
-    m_texture_list.remove(ptr);
 
     delete ptr;
     ptr = nullptr;
