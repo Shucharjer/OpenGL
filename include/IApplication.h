@@ -25,6 +25,8 @@ struct DisplayConfig
     float near;
     float far;
 
+    float gamma;
+
     const char* name = "Unique Engine";
 };
 

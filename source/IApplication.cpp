@@ -133,6 +133,7 @@ void IApplication::Init()
     m_config->TryGetInt("port_height", g_display_config.port_height, 960);
     m_config->TryGetFloat("near", g_display_config.near, 0.1f);
     m_config->TryGetFloat("far", g_display_config.far, 1200.0f);
+    m_config->TryGetFloat("gamma", g_display_config.gamma, 2.2f);
     
     m_window = glfwCreateWindow(g_display_config.width, g_display_config.height, g_display_config.name, nullptr, nullptr);
     if (!m_window)

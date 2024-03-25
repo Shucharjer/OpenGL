@@ -25,6 +25,8 @@ class Application : public IApplication
     Framebuffer* hdr_buffer = nullptr;
     GLuint hdr_color_buffer;
     GLuint hdr_depth_buffer;
+    GLuint hdr_vertex_array;
+    GLuint hdr_vertex_buffer;
 
     // distance, object
     // std::map<float, > not_transparent_objects

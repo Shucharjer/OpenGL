@@ -93,10 +93,10 @@ void Application::OnInit()
 
     depth_shader = new ShaderProgram("resource/shader/depth.vsh", "resource/shader/depth.fsh");
     nonlight_shader = new ShaderProgram("resource/shader/light/none.vsh", "resource/shader/light/none.fsh");
-    flat_shader = new ShaderProgram("resource/shader/flat.vsh", "resource/shader/flat.fsh");
-    gouraud_shader = new ShaderProgram("resource/shader/gouraud.vsh", "resource/shader/gouraud.fsh");
-    phong_shader = new ShaderProgram("resource/shader/phong.vsh", "resource/shader/phong.fsh");
-    bilnn_phong_shader = new ShaderProgram("resource/shader/blinn_phong.vsh", "resource/shader/blinn_phong.fsh");
+    flat_shader = new ShaderProgram("resource/shader/light/flat.vsh", "resource/shader/light/flat.fsh");
+    gouraud_shader = new ShaderProgram("resource/shader/light/gouraud.vsh", "resource/shader/light/gouraud.fsh");
+    phong_shader = new ShaderProgram("resource/shader/light/phong.vsh", "resource/shader/light/phong.fsh");
+    bilnn_phong_shader = new ShaderProgram("resource/shader/light/blinn_phong.vsh", "resource/shader/light/blinn_phong.fsh");
     hdr_shader = new ShaderProgram("resource/shader/hdr.vsh", "resource/shader/hdr.fsh");
 
     glGenVertexArrays(1, &VAO);
@@ -148,6 +148,8 @@ Application::~Application()
     {
         glDeleteTextures(1, &hdr_color_buffer);
         glDeleteRenderbuffers(1, &hdr_depth_buffer);
+        glDeleteVertexArrays(1, &hdr_vertex_array);
+        glDeleteBuffers(1, &hdr_vertex_buffer);
         delete hdr_buffer;
         hdr_buffer = nullptr;
     }
@@ -196,7 +198,7 @@ bool DrawImGuiLayer = false;
 bool DrawSkybox = true;
 bool DrawDepth = false;
 bool DrawWithVsync = true;
-bool DrawWithHDR = true;
+bool DrawWithHDR = false;
 
 int UseShader = 0;
 typedef enum { Shading_None, Shading_Depth, Shading_Flat, Shading_Gouraud, Shading_Phong, Shading_Blinn_Phong } Shading;
@@ -246,12 +248,33 @@ void Application::Update()
                     Logger::Output("Framebuffer not complete\n");
                 }
                 glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+                // the follow lines would be mess if you don't use clangd
+                GLfloat quad_vertices[] = {
+                // Positions                    // Texture Coords
+                -1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+                -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+                1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+                };
+
+                glGenVertexArrays(1, &hdr_vertex_array);
+                glGenBuffers(1, &hdr_vertex_buffer);
+                glBindVertexArray(hdr_vertex_array);
+                glBindBuffer(GL_ARRAY_BUFFER, hdr_vertex_buffer);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), &quad_vertices, GL_STATIC_DRAW);
+                glEnableVertexAttribArray(0);
+                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+                glEnableVertexAttribArray(1);
+                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
             }
             else
             {
                 glDeleteFramebuffers(1, hdr_buffer->GetAddressOf());
                 glDeleteTextures(1, &hdr_color_buffer);
                 glDeleteRenderbuffers(1, &hdr_depth_buffer);
+                glDeleteVertexArrays(1, &hdr_vertex_array);
+                glDeleteBuffers(1, &hdr_vertex_buffer);
                 delete hdr_buffer;
                 hdr_buffer = nullptr;
             }
@@ -323,9 +346,10 @@ void Application::Render()
     if (DrawWithHDR)
     {
         glBindFramebuffer(GL_FRAMEBUFFER, hdr_buffer->GetObject());
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     }
 
+    // draw objects not transparent
     if (UseShader == Shading_None)
     {
         nonlight_shader->Use();
@@ -360,14 +384,10 @@ void Application::Render()
 
     }
 
-    if (DrawWithHDR)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        hdr_shader->Use();
-        
+    // draw objects transparent
+    // ...
 
-    }
-
+    // hdr texture is draw at z 0, so we need to draw skybox after draw hdr texture
     if (DrawSkybox)
     {
         glDepthFunc(GL_LEQUAL);
@@ -380,6 +400,21 @@ void Application::Render()
         skybox->Draw(*skybox_shader);
         glDepthMask(GL_TRUE);
         glDepthFunc(GL_LESS);
+    }
+
+    if (DrawWithHDR)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        hdr_shader->Use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, hdr_color_buffer);
+        hdr_shader->SetInt("hdr_color_buffer", 0);
+        // this value, exposure, will be automaticlly set one day
+        hdr_shader->SetFloat("", 1.0f);
+        hdr_shader->SetFloat("gamma", g_display_config.gamma);
+        glBindVertexArray(hdr_vertex_array);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glBindVertexArray(0);
     }
 }
 
