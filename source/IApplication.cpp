@@ -1,4 +1,5 @@
 #include "Input/Input.h"
+#include "Render/HighDynamicRange.h"
 #include "Render/Map/MappingManager.h"
 #include "imgui.h"
 #include "Reference/imgui_impl_glfw.h"
@@ -7,6 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <string>
 #include "IApplication.h"
+#include "Render/HighDynamicRange.cpp"
 
 ////////////////////////////////////////////////////
 // static vars
@@ -123,16 +125,29 @@ void IApplication::Init()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_SAMPLES, 4);
 #if defined(MAC_OS)
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
+    m_config->TryGetBool("fullscreen", g_display_config.fullscreen, false);
+
+    m_config->TryGetBool("vsync", g_display_config.vsync, false);;
+
+    m_config->TryGetBool("hdr", g_display_config.hdr, true);
+
+    m_config->TryGetBool("msaa", g_display_config.msaa, true);
+    m_config->TryGetInt("num_samples", g_display_config.num_samples, 4);
+
     m_config->TryGetInt("width", g_display_config.width, 1280);
     m_config->TryGetInt("height", g_display_config.height, 960);
+
     m_config->TryGetInt("port_width", g_display_config.port_width, 1280);
     m_config->TryGetInt("port_height", g_display_config.port_height, 960);
+
     m_config->TryGetFloat("near", g_display_config.near, 0.1f);
     m_config->TryGetFloat("far", g_display_config.far, 1200.0f);
+
     m_config->TryGetFloat("gamma", g_display_config.gamma, 2.2f);
     
     m_window = glfwCreateWindow(g_display_config.width, g_display_config.height, g_display_config.name, nullptr, nullptr);
@@ -186,8 +201,18 @@ void IApplication::Run()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         
+        
         Update();
+        glfwSwapInterval(g_display_config.vsync);
+        HighDynamicRange::Set(g_display_config.hdr);
+        if (g_display_config.msaa) glEnable(GL_MULTISAMPLE);
+        else glDisable(GL_MULTISAMPLE);
+        glViewport(0, 0, g_display_config.width, g_display_config.height);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClearColor(0.73f, 0.8f, 1.0f, 1.0f);
+        if (g_display_config.hdr) HighDynamicRange::UseFramebuffer(g_display_config.width, g_display_config.height);
         Render();
+        if (g_display_config.hdr) HighDynamicRange::DrawFramebuffer(g_display_config.gamma);
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

@@ -14,9 +14,9 @@ void main()
 {
     vec3 hdr_color = texture(hdr_color_buffer, TexCoords).rgb;
     // 色调映射
-    //vec3 mapped = vec3(1.0) - exp(-hdr_color * exposure);
+    vec3 mapped = vec3(1.0) - exp(-hdr_color * exposure);
     // gamma校正
-    //mapped = pow(mapped, vec3(1.0 / gamma));
+    mapped = pow(mapped, vec3(1.0 / gamma));
 
     FragColor = vec4(hdr_color, 1.0);
 }

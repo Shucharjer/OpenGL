@@ -142,17 +142,6 @@ Application::~Application()
     delete gouraud_shader;
     delete phong_shader;
     delete bilnn_phong_shader;
-    delete hdr_shader;
-
-    if (hdr_buffer)
-    {
-        glDeleteTextures(1, &hdr_color_buffer);
-        glDeleteRenderbuffers(1, &hdr_depth_buffer);
-        glDeleteVertexArrays(1, &hdr_vertex_array);
-        glDeleteBuffers(1, &hdr_vertex_buffer);
-        delete hdr_buffer;
-        hdr_buffer = nullptr;
-    }
 
     glDeleteBuffers(1, &VBO);
     glDeleteVertexArrays(1, &VAO);
@@ -217,68 +206,13 @@ void Application::Update()
         ImGui::Text("FPS: %d, MSPF: %f", g_timer.GetFramesInLastSecond(), 1000.0 / g_timer.GetFramesInLastSecond());
         ImGui::Text("pos: %f, %f, %f", g_camera->pos.x, g_camera->pos.y, g_camera->pos.z);
         ImGui::Text("ang: %f, %f, %f", g_camera->pitch, g_camera->yaw, g_camera->roll);
-        if (ImGui::Button("Skybox"))
-        {
-            DrawSkybox = !DrawSkybox;
-        }
+        ImGui::Checkbox("Skybox", &DrawSkybox);
         ImGui::SameLine();
-        if (ImGui::Button("Vsync"))
-        {
-            DrawWithVsync = !DrawWithVsync;
-        }
-        if (ImGui::Button("HDR"))
-        {
-            DrawWithHDR = !DrawWithHDR;
-            if (DrawWithHDR)
-            {
-                // create framebuffer
-                hdr_buffer = new Framebuffer();
-                // create color buffer
-                hdr_color_buffer = Framebuffer::GenerateColorBuffer(GL_TEXTURE_2D, GL_RGBA16F, g_display_config.width, g_display_config.height, GL_RGBA, GL_FLOAT);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                // create depth buffer
-                hdr_depth_buffer = Framebuffer::GenerateRenderBuffer(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, g_display_config.width, g_display_config.height);
-                // attach buffers to framebuffer
-                glBindFramebuffer(GL_FRAMEBUFFER, hdr_buffer->GetObject());
-                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, hdr_color_buffer, 0);
-                glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, hdr_depth_buffer);
-                if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-                {
-                    Logger::Output("Framebuffer not complete\n");
-                }
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-                // the follow lines would be mess if you don't use clangd
-                GLfloat quad_vertices[] = {
-                // Positions                    // Texture Coords
-                -1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-                -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-                1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-                1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-                };
-
-                glGenVertexArrays(1, &hdr_vertex_array);
-                glGenBuffers(1, &hdr_vertex_buffer);
-                glBindVertexArray(hdr_vertex_array);
-                glBindBuffer(GL_ARRAY_BUFFER, hdr_vertex_buffer);
-                glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), &quad_vertices, GL_STATIC_DRAW);
-                glEnableVertexAttribArray(0);
-                glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
-                glEnableVertexAttribArray(1);
-                glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
-            }
-            else
-            {
-                glDeleteFramebuffers(1, hdr_buffer->GetAddressOf());
-                glDeleteTextures(1, &hdr_color_buffer);
-                glDeleteRenderbuffers(1, &hdr_depth_buffer);
-                glDeleteVertexArrays(1, &hdr_vertex_array);
-                glDeleteBuffers(1, &hdr_vertex_buffer);
-                delete hdr_buffer;
-                hdr_buffer = nullptr;
-            }
-        }
+        ImGui::Checkbox("Vsync", &g_display_config.vsync);
+        ImGui::SameLine();
+        ImGui::Checkbox("Multi-Sample Anti-Aliasing", &g_display_config.msaa);
+        ImGui::SameLine();
+        ImGui::Checkbox("Hight Dynamic Range", &g_display_config.hdr);
         
         ImGui::RadioButton("Depth", &UseShader, Shading_Depth);
         ImGui::SameLine();
@@ -325,21 +259,11 @@ void DrawBox(ShaderProgram& program)
 void Application::Render()
 {
     glEnable(GL_DEPTH_TEST);
-    if (DrawWithVsync)
-    {
-        glfwSwapInterval(1);
-    }
-    else {
-        glfwSwapInterval(0);
-    }
     
     glm::mat4 model(1.0f);
     glm::mat4 view = g_camera->GetViewMatrix();
     glm::mat4 proj = glm::perspective(glm::radians(g_camera->fov),
     (float)g_display_config.port_width / (float)g_display_config.port_height, g_display_config.near, g_display_config.far);
-    glViewport(0, 0, g_display_config.width, g_display_config.height);
-    glClearColor(0.73f, 0.8f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     // shadow
 
     // object
@@ -400,21 +324,6 @@ void Application::Render()
         skybox->Draw(*skybox_shader);
         glDepthMask(GL_TRUE);
         glDepthFunc(GL_LESS);
-    }
-
-    if (DrawWithHDR)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        hdr_shader->Use();
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, hdr_color_buffer);
-        hdr_shader->SetInt("hdr_color_buffer", 0);
-        // this value, exposure, will be automaticlly set one day
-        hdr_shader->SetFloat("", 1.0f);
-        hdr_shader->SetFloat("gamma", g_display_config.gamma);
-        glBindVertexArray(hdr_vertex_array);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        glBindVertexArray(0);
     }
 }
 

@@ -15,6 +15,10 @@ struct DisplayConfig
 {
     bool fullscreen;
     bool vsync;
+    bool hdr;
+
+    bool msaa;
+    int num_samples;
 
     int width;
     int height;
