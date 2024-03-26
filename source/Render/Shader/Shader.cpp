@@ -35,7 +35,7 @@ Shader::Shader(const char* path, GLenum type)
     glGetShaderiv(m_Shader, GL_COMPILE_STATUS, &success);
     if (!success) {
 	    glGetShaderInfoLog(m_Shader, 256, NULL, info);
-	    Logger::Output("failed to compile shader\n", info, '\n');
+	    Logger::Output("failed to compile shader at ", path, '\n', info, '\n');
     }
 }
 

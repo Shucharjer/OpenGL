@@ -1,4 +1,5 @@
 #pragma once
+#include "Light/Light.h"
 #include "Render/Map/MappingManager.h"
 #include "Timer.h"
 
@@ -16,6 +17,7 @@ struct DisplayConfig
     bool fullscreen;
     bool vsync;
     bool hdr;
+    bool bloom;
 
     bool msaa;
     int num_samples;
@@ -49,6 +51,7 @@ class IApplication
     static Timer g_timer;
     static DisplayConfig g_display_config;
     static MappingManager g_mapping_manager;
+    LightManager light_manager;
 
     IApplication(Config* config);
     ~IApplication();

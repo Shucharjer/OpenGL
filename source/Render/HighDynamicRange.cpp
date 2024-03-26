@@ -1,5 +1,4 @@
 #include "Render/HighDynamicRange.h"
-#include "IApplication.h"
 #include "Render/Framebuffer.h"
 #include "Logger.h"
 #include "Render/Shader/ShaderProgram.h"
@@ -8,9 +7,8 @@ HDRMonitor* HDRMonitor::m_instance;
 
 HDRMonitor HighDynamicRange::hdr_monitor;
 
-bool HighDynamicRange::enable = false;
-bool HighDynamicRange::msaa = false;
-int HighDynamicRange::num_samples = 4;
+bool HighDynamicRange::hdr_enable = false;
+bool HighDynamicRange::bloom_enable = false;
 GLuint HighDynamicRange::framebuffer = NULL;
 GLuint HighDynamicRange::color_buffer = NULL;
 GLuint HighDynamicRange::depth_buffer = NULL;
@@ -29,15 +27,16 @@ HDRMonitor::HDRMonitor()
 
 HDRMonitor::~HDRMonitor()
 {
-    if (HighDynamicRange::enable)
+    if (HighDynamicRange::hdr_enable)
     {
         HighDynamicRange::DeleteHDRFramebuffer();
     }
 }
 
-void HighDynamicRange::Set(bool boolean)
+void HighDynamicRange::Set(bool boolean, bool bloom)
 {
-    enable = boolean;
+    hdr_enable = boolean;
+    bloom_enable = bloom;
 }
 
 void HighDynamicRange::CreateHDRFramebuffer(int width, int height)
@@ -100,7 +99,7 @@ void HighDynamicRange::DeleteHDRFramebuffer()
 
 void HighDynamicRange::UseFramebuffer(int width, int height)
 {
-    if (!enable)
+    if (!hdr_enable)
     {
         if (framebuffer) DeleteHDRFramebuffer();
         return;
@@ -114,7 +113,7 @@ void HighDynamicRange::UseFramebuffer(int width, int height)
 
 void HighDynamicRange::DrawFramebuffer(float gamma)
 {
-    if (!enable) return;
+    if (!hdr_enable) return;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -128,4 +127,12 @@ void HighDynamicRange::DrawFramebuffer(float gamma)
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
+}
+
+void HighDynamicRange::ResetFramebuffer()
+{
+    if (hdr_enable) 
+    {
+        DeleteHDRFramebuffer();
+    }
 }

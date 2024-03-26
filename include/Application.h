@@ -18,7 +18,7 @@ class Application : public IApplication
     ShaderProgram* flat_shader = nullptr;
     ShaderProgram* gouraud_shader = nullptr;
     ShaderProgram* phong_shader = nullptr;
-    ShaderProgram* bilnn_phong_shader = nullptr;
+    ShaderProgram* blinn_phong_shader = nullptr;
 
     // hight dynamic range
     ShaderProgram* hdr_shader = nullptr;

@@ -8,7 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <string>
 #include "IApplication.h"
-#include "Render/HighDynamicRange.cpp"
+
 
 ////////////////////////////////////////////////////
 // static vars
@@ -96,6 +96,7 @@ void Framebuffer_Size_Callback(GLFWwindow* window, int width, int height)
 {
     IApplication::g_display_config.width = width;
     IApplication::g_display_config.height = height;
+    HighDynamicRange::ResetFramebuffer();
 }
 
 IApplication::IApplication(Config* config)
@@ -135,6 +136,7 @@ void IApplication::Init()
     m_config->TryGetBool("vsync", g_display_config.vsync, false);;
 
     m_config->TryGetBool("hdr", g_display_config.hdr, true);
+    m_config->TryGetBool("bloom", g_display_config.bloom, true);
 
     m_config->TryGetBool("msaa", g_display_config.msaa, true);
     m_config->TryGetInt("num_samples", g_display_config.num_samples, 4);
@@ -204,7 +206,7 @@ void IApplication::Run()
         
         Update();
         glfwSwapInterval(g_display_config.vsync);
-        HighDynamicRange::Set(g_display_config.hdr);
+        HighDynamicRange::Set(g_display_config.hdr, g_display_config.bloom);
         if (g_display_config.msaa) glEnable(GL_MULTISAMPLE);
         else glDisable(GL_MULTISAMPLE);
         glViewport(0, 0, g_display_config.width, g_display_config.height);

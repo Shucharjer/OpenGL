@@ -25,9 +25,8 @@ private:
     // if forget to set hdr off, this obj will do it
     static HDRMonitor hdr_monitor;
 
-    static bool enable;
-    static bool msaa;
-    static int num_samples;
+    static bool hdr_enable;
+    static bool bloom_enable;
     static GLuint framebuffer;
     static GLuint color_buffer;
     static GLuint depth_buffer;
@@ -42,8 +41,9 @@ private:
     static void DrawFramebuffer(float gamma = 2.2f);
     
 public:
-    static bool IsEnable() { return enable; }
-    static void Set(bool boolean);
+    static bool IsEnable() { return hdr_enable; }
+    static void Set(bool boolean, bool bloom);
+    static void ResetFramebuffer();
 };
 
 

@@ -1,20 +1,18 @@
 #include "Application.h"
-#include "IApplication.h"
 #include "Input/Input.h"
+#include "Light/PointLight.h"
 #include "Logger.h"
 #include "Render/Framebuffer.h"
 #include "Render/Map/MappingManager.h"
 #include "Render/Shader/ShaderProgram.h"
 #include <GLFW/glfw3.h>
-#include <cstddef>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
-#include <glm/fwd.hpp>
 #include <imgui.h>
 
 float CubeVertices[] = {
-	// positions          // normals           // texture coords
+	// positions                        // normals                      // texture coords
 	-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
 	 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
 	 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
@@ -89,14 +87,14 @@ void Application::OnInit()
     application_window = m_window;
 
     skybox_shader = new ShaderProgram("resource/shader/skybox.vsh", "resource/shader/skybox.fsh");
-    skybox = MappingManager::CreateCubeMap("resource/skybox/", true);
+    skybox = MappingManager::CreateCubeMap("resource/skybox/", true, false);
 
     depth_shader = new ShaderProgram("resource/shader/depth.vsh", "resource/shader/depth.fsh");
     nonlight_shader = new ShaderProgram("resource/shader/light/none.vsh", "resource/shader/light/none.fsh");
     flat_shader = new ShaderProgram("resource/shader/light/flat.vsh", "resource/shader/light/flat.fsh");
     gouraud_shader = new ShaderProgram("resource/shader/light/gouraud.vsh", "resource/shader/light/gouraud.fsh");
     phong_shader = new ShaderProgram("resource/shader/light/phong.vsh", "resource/shader/light/phong.fsh");
-    bilnn_phong_shader = new ShaderProgram("resource/shader/light/blinn_phong.vsh", "resource/shader/light/blinn_phong.fsh");
+    blinn_phong_shader = new ShaderProgram("resource/shader/light/blinn_phong.vsh", "resource/shader/light/blinn_phong.fsh");
     hdr_shader = new ShaderProgram("resource/shader/hdr.vsh", "resource/shader/hdr.fsh");
 
     glGenVertexArrays(1, &VAO);
@@ -121,7 +119,7 @@ void Application::OnInit()
 
     glGenTextures(1, &Specular);
     glBindTexture(GL_TEXTURE_2D, Specular);
-    MappingManager::ReadTexture2D("resource/texture/container2.png", GL_TEXTURE_2D);
+    MappingManager::ReadTexture2D("resource/texture/container2_specular.png", GL_TEXTURE_2D);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -130,6 +128,8 @@ void Application::OnInit()
 
 
     glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+
 }
 
 Application::~Application()
@@ -141,10 +141,13 @@ Application::~Application()
     delete flat_shader;
     delete gouraud_shader;
     delete phong_shader;
-    delete bilnn_phong_shader;
+    delete blinn_phong_shader;
 
     glDeleteBuffers(1, &VBO);
     glDeleteVertexArrays(1, &VAO);
+
+    glDeleteTextures(1, &Ambient);
+    glDeleteTextures(1, &Specular);
 }
 
 
@@ -185,12 +188,10 @@ void ProcessKeyInput()
 
 bool DrawImGuiLayer = false;
 bool DrawSkybox = true;
-bool DrawDepth = false;
-bool DrawWithVsync = true;
-bool DrawWithHDR = false;
 
-int UseShader = 0;
+
 typedef enum { Shading_None, Shading_Depth, Shading_Flat, Shading_Gouraud, Shading_Phong, Shading_Blinn_Phong } Shading;
+int UseShader = Shading_Blinn_Phong;
 
 void Application::Update()
 {
@@ -250,6 +251,11 @@ void DrawBox(ShaderProgram& program)
         glBindVertexArray(VAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, Ambient);
+        program.SetInt("material.ambient", 0);
+        program.SetInt("material.diffuse", 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, Specular);
+        program.SetInt("material.specular", 1);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
     }
@@ -267,13 +273,22 @@ void Application::Render()
     // shadow
 
     // object
-    if (DrawWithHDR)
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, hdr_buffer->GetObject());
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    }
 
     // draw objects not transparent
+    PointLight pl1 (glm::vec3(4.2, 3.2, 1.2), 
+        glm::vec3(10), glm::vec3(0.6), glm::vec3(0.8),
+        0.5, 0.08, 0.016
+        );
+    PointLight pl2 (glm::vec3(3, 32.2, -1.2), 
+        glm::vec3(0.3), glm::vec3(0.6), glm::vec3(0.8));
+    PointLight pl3 (glm::vec3(8.2, 2.2, 7.2),
+        glm::vec3(0.2), glm::vec3(0.5), glm::vec3(1.0));
+    PointLight pl4 (glm::vec3(4.2, 1.2, -6.2), 
+        glm::vec3(0.35), glm::vec3(0.6), glm::vec3(0.7));
+    light_manager.Add(pl1);
+    light_manager.Add(pl2);
+    light_manager.Add(pl3);
+    light_manager.Add(pl4);
     if (UseShader == Shading_None)
     {
         nonlight_shader->Use();
@@ -305,8 +320,16 @@ void Application::Render()
     }
     else if (UseShader == Shading_Blinn_Phong)
     {
-
+        blinn_phong_shader->Use();
+        blinn_phong_shader->SetMat4("view", view);
+        blinn_phong_shader->SetMat4("proj", proj);
+        light_manager.SetUniforms(*blinn_phong_shader);
+        DrawBox(*blinn_phong_shader);
     }
+    light_manager.Remove(pl1);
+    light_manager.Remove(pl2);
+    light_manager.Remove(pl3);
+    light_manager.Remove(pl4);
 
     // draw objects transparent
     // ...
